@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jupiter Swap</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+        }
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 15px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+        }
+        .header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .wallet-status {
+            padding: 10px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+            color: #666;
+        }
+        .connected {
+            color: #28a745;
+        }
+        .disconnected {
+            color: #dc3545;
+        }
+        .jupiter-container {
+            flex: 1;
+            padding: 10px;
+            background: white;
+        }
+        #integrated-terminal {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Jupiter Swap</h2>
+        </div>
+        <div class="wallet-status" id="wallet-status">
+            <span class="disconnected">Кошелек не подключен</span>
+        </div>
+        <div class="jupiter-container">
+            <div id="integrated-terminal" style="width: 100%; height: 100%;"></div>
+        </div>
+    </div>
+    <!-- Jupiter Terminal Script -->
+    <script src="https://terminal.jup.ag/main-v4.js"></script>
+    <script>
+        // Инициализация Jupiter
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем доступность кошелька
+            function checkWallet() {
+                if (window.solana && window.solana.isPhantom) {
+                    updateWalletStatus('Phantom подключен', true);
+                } else if (window.solflare && window.solflare.isSolflare) {
+                    updateWalletStatus('Solflare подключен', true);
+                } else {
+                    updateWalletStatus('Кошелек не подключен', false);
+                }
+            }
+            function updateWalletStatus(message, connected) {
+                const statusEl = document.getElementById('wallet-status');
+                const span = statusEl.querySelector('span');
+                span.textContent = message;
+                span.className = connected ? 'connected' : 'disconnected';
+            }
+            // Инициализируем Jupiter
+            try {
+                window.Jupiter.init({
+                    displayMode: "integrated",
+                    integratedTargetId: "integrated-terminal",
+                    endpoint: "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY", // Замените на свой RPC endpoint
+                    defaultExplorer: "Solscan",
+                    onSuccess: function() {
+                        console.log('Jupiter initialized successfully');
+                        checkWallet();
+                    },
+                    onError: function(error) {
+                        console.error('Jupiter initialization error:', error);
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing Jupiter:', error);
+            }
+            // Слушаем изменения кошелька
+            window.addEventListener('load', function() {
+                setTimeout(checkWallet, 1000);
+            });
+            // Периодически проверяем статус кошелька
+            setInterval(checkWallet, 5000);
+        });
+    </script>
+</body>
+</html> 
