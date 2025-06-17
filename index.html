@@ -9,7 +9,86 @@
     <div id="integrated-terminal" style="width: 100%; height: 100%"></div>
 
     <!-- Jupiter Terminal Script -->
-    <script src="https://terminal.jup.ag/main-v4.js" defer></script>
-    <script src="jupiter-init.js" defer></script>
+    <script src="https://terminal.jup.ag/main-v4.js"></script>
+    <script>
+        // Функция для отправки статуса в родительское окно
+        function sendStatusToParent(status) {
+            try {
+                window.parent.postMessage(
+                    {
+                        type: "JUPITER_WALLET_STATUS",
+                        status: status,
+                    },
+                    "*"
+                );
+            } catch (error) {
+                console.error("Error sending status to parent:", error);
+            }
+        }
+
+        // Функция для проверки статуса кошелька
+        function checkWalletStatus() {
+            let status = { connected: false, walletName: null };
+
+            if (window.solana && window.solana.isPhantom) {
+                status = { connected: true, walletName: "Phantom" };
+            } else if (window.solflare && window.solflare.isSolflare) {
+                status = { connected: true, walletName: "Solflare" };
+            }
+
+            // Отправляем статус родителю
+            sendStatusToParent(status);
+            return status;
+        }
+
+        // Инициализация Jupiter и слежение за кошельком
+        window.addEventListener("load", function() {
+            try {
+                window.Jupiter.init({
+                    displayMode: "integrated",
+                    integratedTargetId: "integrated-terminal",
+                    endpoint: "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY",
+                    defaultExplorer: "Solscan",
+                    onSuccess: function() {
+                        console.log("Jupiter initialized successfully");
+                        // Проверяем статус после инициализации
+                        checkWalletStatus();
+                    },
+                    onError: function(error) {
+                        console.error("Jupiter initialization error:", error);
+                    },
+                });
+
+                // Слушаем изменения в Phantom
+                if (window.solana) {
+                    window.solana.on("connect", () => {
+                        console.log("Phantom connected");
+                        checkWalletStatus();
+                    });
+                    window.solana.on("disconnect", () => {
+                        console.log("Phantom disconnected");
+                        checkWalletStatus();
+                    });
+                }
+
+                // Слушаем изменения в Solflare
+                if (window.solflare) {
+                    window.solflare.on("connect", () => {
+                        console.log("Solflare connected");
+                        checkWalletStatus();
+                    });
+                    window.solflare.on("disconnect", () => {
+                        console.log("Solflare disconnected");
+                        checkWalletStatus();
+                    });
+                }
+
+                // Периодически проверяем статус
+                setInterval(checkWalletStatus, 5000);
+            } catch (error) {
+                console.error("Error initializing Jupiter:", error);
+            }
+        });
+    </script>
   </body>
 </html>
