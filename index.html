@@ -1,161 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jupiter Swap</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
-        }
-        .container {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .header {
-            padding: 15px;
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
-            text-align: center;
-        }
-        .header h2 {
-            margin: 0;
-            color: #333;
-            font-size: 18px;
-        }
-        .wallet-status {
-            padding: 10px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-            color: #666;
-        }
-        .connected {
-            color: #28a745;
-        }
-        .disconnected {
-            color: #dc3545;
-        }
-        .jupiter-container {
-            flex: 1;
-            padding: 10px;
-            background: white;
-        }
-        #integrated-terminal {
-            width: 100%;
-            height: 100%;
-            border: none;
-            border-radius: 8px;
-            background: white;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>Jupiter Swap</h2>
-        </div>
-        <div class="wallet-status" id="wallet-status">
-            <span class="disconnected">Кошелек не подключен</span>
-        </div>
-        <div class="jupiter-container">
-            <div id="integrated-terminal" style="width: 100%; height: 100%;"></div>
-        </div>
-    </div>
+  </head>
+  <body>
+    <div id="integrated-terminal" style="width: 100%; height: 100%"></div>
+
     <!-- Jupiter Terminal Script -->
     <script src="https://terminal.jup.ag/main-v4.js"></script>
     <script>
-        // Функция для отправки статуса в родительское окно
-        function sendStatusToParent(status) {
-            try {
-                window.parent.postMessage({
-                    type: 'JUPITER_WALLET_STATUS',
-                    status: status
-                }, '*');
-            } catch (error) {
-                console.error('Error sending status to parent:', error);
-            }
+      // Функция для отправки статуса в родительское окно
+      function sendStatusToParent(status) {
+        try {
+          window.parent.postMessage(
+            {
+              type: "JUPITER_WALLET_STATUS",
+              status: status,
+            },
+            "*"
+          );
+        } catch (error) {
+          console.error("Error sending status to parent:", error);
+        }
+      }
+
+      // Функция для проверки статуса кошелька
+      function checkWalletStatus() {
+        let status = { connected: false, walletName: null };
+
+        if (window.solana && window.solana.isPhantom) {
+          status = { connected: true, walletName: "Phantom" };
+        } else if (window.solflare && window.solflare.isSolflare) {
+          status = { connected: true, walletName: "Solflare" };
         }
 
-        // Функция для проверки статуса кошелька
-        function checkWalletStatus() {
-            let status = { connected: false, walletName: null };
-            
-            if (window.solana && window.solana.isPhantom) {
-                status = { connected: true, walletName: 'Phantom' };
-            } else if (window.solflare && window.solflare.isSolflare) {
-                status = { connected: true, walletName: 'Solflare' };
-            }
+        // Обновляем UI
+        updateWalletStatus(status);
+        // Отправляем статус родителю
+        sendStatusToParent(status);
 
-            // Обновляем UI
-            updateWalletStatus(status);
-            // Отправляем статус родителю
-            sendStatusToParent(status);
-            
-            return status;
+        return status;
+      }
+
+      function updateWalletStatus(status) {
+        const statusEl = document.getElementById("wallet-status");
+        const span = statusEl.querySelector("span");
+        span.textContent = status.connected
+          ? `${status.walletName} подключен`
+          : "Кошелек не подключен";
+        span.className = status.connected ? "connected" : "disconnected";
+      }
+
+      // Инициализация Jupiter и слежение за кошельком
+      document.addEventListener("DOMContentLoaded", function () {
+        try {
+          window.Jupiter.init({
+            displayMode: "integrated",
+            integratedTargetId: "integrated-terminal",
+            endpoint: "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY",
+            defaultExplorer: "Solscan",
+            onSuccess: function () {
+              console.log("Jupiter initialized successfully");
+              // Проверяем статус после инициализации
+              checkWalletStatus();
+            },
+            onError: function (error) {
+              console.error("Jupiter initialization error:", error);
+            },
+          });
+
+          // Слушаем изменения в Phantom
+          if (window.solana) {
+            window.solana.on("connect", () => {
+              console.log("Phantom connected");
+              checkWalletStatus();
+            });
+            window.solana.on("disconnect", () => {
+              console.log("Phantom disconnected");
+              checkWalletStatus();
+            });
+          }
+
+          // Слушаем изменения в Solflare
+          if (window.solflare) {
+            window.solflare.on("connect", () => {
+              console.log("Solflare connected");
+              checkWalletStatus();
+            });
+            window.solflare.on("disconnect", () => {
+              console.log("Solflare disconnected");
+              checkWalletStatus();
+            });
+          }
+        } catch (error) {
+          console.error("Error initializing Jupiter:", error);
         }
 
-        function updateWalletStatus(status) {
-            const statusEl = document.getElementById('wallet-status');
-            const span = statusEl.querySelector('span');
-            span.textContent = status.connected ? `${status.walletName} подключен` : 'Кошелек не подключен';
-            span.className = status.connected ? 'connected' : 'disconnected';
-        }
-
-        // Инициализация Jupiter и слежение за кошельком
-        document.addEventListener('DOMContentLoaded', function() {
-            try {
-                window.Jupiter.init({
-                    displayMode: "integrated",
-                    integratedTargetId: "integrated-terminal",
-                    endpoint: "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY",
-                    defaultExplorer: "Solscan",
-                    onSuccess: function() {
-                        console.log('Jupiter initialized successfully');
-                        // Проверяем статус после инициализации
-                        checkWalletStatus();
-                    },
-                    onError: function(error) {
-                        console.error('Jupiter initialization error:', error);
-                    }
-                });
-
-                // Слушаем изменения в Phantom
-                if (window.solana) {
-                    window.solana.on('connect', () => {
-                        console.log('Phantom connected');
-                        checkWalletStatus();
-                    });
-                    window.solana.on('disconnect', () => {
-                        console.log('Phantom disconnected');
-                        checkWalletStatus();
-                    });
-                }
-
-                // Слушаем изменения в Solflare
-                if (window.solflare) {
-                    window.solflare.on('connect', () => {
-                        console.log('Solflare connected');
-                        checkWalletStatus();
-                    });
-                    window.solflare.on('disconnect', () => {
-                        console.log('Solflare disconnected');
-                        checkWalletStatus();
-                    });
-                }
-
-            } catch (error) {
-                console.error('Error initializing Jupiter:', error);
-            }
-
-            // Периодически проверяем статус
-            setInterval(checkWalletStatus, 5000);
-        });
+        // Периодически проверяем статус
+        setInterval(checkWalletStatus, 5000);
+      });
     </script>
-</body>
-</html> 
+  </body>
+</html>
